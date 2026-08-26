@@ -12,15 +12,12 @@ import java.util.List;
 
 public class Player {
 
-    public static final int STARTING_LIFE = 5;
-
     private final String name;
     private final Deck animalDeck;
     private final Deck squirrelDeck;
     private final List<Card> hand = new ArrayList<>();
     private int blood;
     private int bones;
-    private int life = STARTING_LIFE;
 
     public Player(String name, Deck animalDeck, Deck squirrelDeck) {
         this.name = name;
@@ -42,22 +39,6 @@ public class Player {
 
     public int getBones() {
         return bones;
-    }
-
-    public int getLife() {
-        return life;
-    }
-
-    public boolean isDefeated() {
-        return life <= 0;
-    }
-
-    /** Damage that lands directly on the player - an unblocked lane attack. */
-    public void takeDamage(int amount) {
-        if (amount < 0) {
-            throw new IllegalArgumentException("Damage cannot be negative");
-        }
-        life = Math.max(0, life - amount);
     }
 
     /**
@@ -84,6 +65,18 @@ public class Player {
         Card card = deck.drawCard();
         hand.add(card);
         return card;
+    }
+
+    /**
+     * Adds a card straight to hand, bypassing the deck entirely - used by
+     * sigils that conjure a card out of thin air (e.g. Unkillable's copy on
+     * death) rather than drawing one.
+     */
+    public void addToHand(Card card) {
+        if (card == null) {
+            throw new IllegalArgumentException("Card cannot be null");
+        }
+        hand.add(card);
     }
 
     /** Whether there's anything left to draw from either deck. */

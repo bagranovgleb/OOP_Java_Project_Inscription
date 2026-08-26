@@ -22,7 +22,7 @@ public class SimpleOpponentAI implements OpponentAI {
     public void takeTurn(GameEngine engine, Board board, Player self, Player opponent) {
         draw(self);
         sacrificeSquirrelIfBlocked(engine, board, self);
-        playFirstAffordableCardIntoOpenSlot(self, board);
+        playFirstAffordableCardIntoOpenSlot(engine, self, board);
         engine.ringBell(false);
     }
 
@@ -59,7 +59,7 @@ public class SimpleOpponentAI implements OpponentAI {
         }
     }
 
-    private void playFirstAffordableCardIntoOpenSlot(Player self, Board board) {
+    private void playFirstAffordableCardIntoOpenSlot(GameEngine engine, Player self, Board board) {
         int emptyLane = firstEmptyLane(board);
         if (emptyLane == -1) {
             return;
@@ -70,7 +70,7 @@ public class SimpleOpponentAI implements OpponentAI {
                     self.spendResource(card.getCostType(), card.getCost());
                 }
                 self.removeFromHand(card);
-                board.placeCard(false, emptyLane, card);
+                engine.placeCard(false, emptyLane, card);
                 return;
             }
         }

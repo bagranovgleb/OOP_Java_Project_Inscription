@@ -22,10 +22,19 @@ public class Card {
     protected final String name;
     protected int attack;
     protected int health;
-    protected final int maxHealth;
+    protected int maxHealth;
     protected boolean exhausted;
     protected final int cost;
     protected final ResourceType costType;
+
+    /**
+     * Which catalog entry this card was built from, if any - set directly by
+     * CardType.create() (same package). Lets a sigil like Unkillable make a
+     * fresh copy of this exact card via sourceType.create(). Null for cards
+     * built ad hoc outside the catalog (e.g. in tests), which simply can't
+     * support "make a copy of me" sigils.
+     */
+    CardType sourceType;
 
     private final List<Sigil> sigils = new ArrayList<>();
 
@@ -98,6 +107,11 @@ public class Card {
         return costType;
     }
 
+    /** Which CardType this card was built from, or null if built ad hoc. */
+    public CardType getSourceType() {
+        return sourceType;
+    }
+
     public boolean isExhausted() {
         return exhausted;
     }
@@ -138,6 +152,21 @@ public class Card {
         attack += amount;
     }
 
+    /**
+     * Permanently raises this card's health cap (e.g. Fledgling's generic
+     * growth for a card with no distinct "grown form" in the catalog).
+     * Also raises current health by the same amount, not just headroom -
+     * growing the cap should make the card tougher right now, not just
+     * later once healed.
+     */
+    public void buffMaxHealth(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("Health buff cannot be negative");
+        }
+        maxHealth += amount;
+        health += amount;
+    }
+
     /** Kills the card outright; used when the player sacrifices it for resources. */
     public void sacrifice() {
         health = 0;
@@ -155,9 +184,16 @@ public class Card {
      * Default attack behavior: deal this card's attack as damage to the target.
      * Polymorphism: subclasses (e.g. a boss with a multi-hit attack) can override
      * this instead of the engine special-casing card types.
+     * <p>
+     * Takes the amount to deal as a parameter rather than always using
+     * this.attack, because the engine may need to adjust it first based on
+     * board position (e.g. Stinky reducing an attacker's power while it
+     * faces the Stinky card) - a subclass overriding this still gets to add
+     * its own bonus on top of whatever the engine determined the attack is
+     * actually worth this turn, rather than the engine bypassing it.
      */
-    public void onAttack(Card target) {
-        target.takeDamage(this.attack);
+    public void onAttack(Card target, int attackAmount) {
+        target.takeDamage(attackAmount);
     }
 
     /**
@@ -173,9 +209,19 @@ public class Card {
 
     @Override
     public String toString() {
+        return describe(attack);
+    }
+
+    /**
+     * Same formatting as toString(), but with a caller-supplied attack value
+     * instead of the stored one - used by GameEngine.getDisplayAttack() so a
+     * UI can show a card's real, current attack (e.g. an Ant's swarm-scaled
+     * power) without this class needing any awareness of the board itself.
+     */
+    public String describe(int displayAttack) {
         String costPart = cost > 0
             ? String.format(" {cost: %d %s}", cost, costType.name().toLowerCase())
             : "";
-        return String.format("%s [%d/%d]%s%s", name, attack, health, costPart, exhausted ? " (exhausted)" : "");
+        return String.format("%s [%d/%d]%s%s", name, displayAttack, health, costPart, exhausted ? " (exhausted)" : "");
     }
 }

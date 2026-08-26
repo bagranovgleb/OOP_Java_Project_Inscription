@@ -6,6 +6,7 @@ import com.inscription.board.Board;
 import com.inscription.board.Slot;
 import com.inscription.deck.Deck;
 import com.inscription.engine.GameEngine;
+import com.inscription.engine.HealthScale;
 import com.inscription.exception.InsufficientResourcesException;
 import com.inscription.exception.InvalidSacrificeException;
 import com.inscription.model.Card;
@@ -67,22 +68,30 @@ public class ConsoleGame {
         player.dealOpeningHand(2);
         opponent.dealOpeningHand(2);
 
-        while (!quit && !player.isDefeated() && !opponent.isDefeated()) {
+        HealthScale scale = engine.getHealthScale();
+        while (!quit && !scale.isPlayerVictorious() && !scale.isOpponentVictorious()) {
             playerTurn();
-            if (quit || opponent.isDefeated()) {
+            if (quit || scale.isPlayerVictorious()) {
                 break;
             }
             opponentTurn();
         }
 
-        if (player.isDefeated()) {
+        if (scale.isOpponentVictorious()) {
             System.out.println("\nYou were defeated. Game over.");
-        } else if (opponent.isDefeated()) {
+        } else if (scale.isPlayerVictorious()) {
             System.out.println("\nYou win! The opponent was defeated.");
         } else {
             System.out.println("\nGoodbye.");
         }
+        printGoldenTeeth(scale);
         scanner.close();
+    }
+
+    private void printGoldenTeeth(HealthScale scale) {
+        System.out.println("\nGolden teeth earned (bonus for overkill damage):");
+        System.out.println("  You:      " + scale.getPlayerGoldenTeeth());
+        System.out.println("  Opponent: " + scale.getOpponentGoldenTeeth());
     }
 
     private void playerTurn() {
@@ -160,8 +169,7 @@ public class ConsoleGame {
         engine.startTurn(false);
         System.out.println("\n----- Opponent's turn -----");
         opponentAI.takeTurn(engine, board, opponent, player);
-        System.out.println("Opponent acted. Your life: " + player.getLife()
-            + " | Opponent life: " + opponent.getLife());
+        System.out.println("Opponent acted. " + describeScale());
         printBoard();
     }
 
@@ -232,7 +240,7 @@ public class ConsoleGame {
             }
         }
 
-        board.placeCard(true, slotIndex, card);
+        engine.placeCard(true, slotIndex, card);
         player.removeFromHand(card);
         System.out.println("Placed " + card.getName() + " in slot " + slotIndex + ".");
     }
@@ -259,7 +267,7 @@ public class ConsoleGame {
         System.out.println("*ring* Combat begins - your creatures attack left to right.");
         engine.ringBell(true);
         printBoard();
-        System.out.println("Your life: " + player.getLife() + " | Opponent life: " + opponent.getLife());
+        System.out.println(describeScale());
     }
 
     private Integer parseInt(String token) {
@@ -275,7 +283,7 @@ public class ConsoleGame {
             Commands:
               hand                       show your hand (with indices)
               board                      show the board
-              status                     show life / blood / bones
+              status                     show the scale / blood / bones
               draw animal|squirrel       mandatory once per turn, before anything else
               place <hand#> <slot#>      play a card from hand onto a board slot
                                          (pays its {cost: N blood/bones} if it has one)
@@ -288,16 +296,27 @@ public class ConsoleGame {
     }
 
     private void printStatus() {
-        System.out.printf("Life: %d | Blood: %d | Bones: %d%n", player.getLife(), player.getBlood(), player.getBones());
+        System.out.println(describeScale() + " | Blood: " + player.getBlood() + " | Bones: " + player.getBones());
         printHand();
         printBoard();
+    }
+
+    /**
+     * One number, 0-10, centered at 5 - not two separate life totals. Higher
+     * favors the player (10 = opponent defeated), lower favors the opponent
+     * (0 = player defeated).
+     */
+    private String describeScale() {
+        int value = engine.getHealthScale().getValue();
+        return "Scale: " + value + "/10 (you win at 10, lose at 0)";
     }
 
     private void printHand() {
         List<Card> hand = player.getHand();
         StringBuilder sb = new StringBuilder("Hand: ");
         for (int i = 0; i < hand.size(); i++) {
-            sb.append("[").append(i).append("] ").append(hand.get(i));
+            Card card = hand.get(i);
+            sb.append("[").append(i).append("] ").append(card.describe(engine.getDisplayAttack(card, true)));
             if (i < hand.size() - 1) {
                 sb.append("  ");
             }
@@ -318,6 +337,9 @@ public class ConsoleGame {
 
     private String describeSlot(Slot slot) {
         Card occupant = slot.getOccupant();
-        return occupant == null ? "(empty)" : occupant.toString();
+        if (occupant == null) {
+            return "(empty)";
+        }
+        return occupant.describe(engine.getDisplayAttack(occupant, true));
     }
 }

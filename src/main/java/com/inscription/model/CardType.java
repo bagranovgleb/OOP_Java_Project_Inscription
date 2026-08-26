@@ -1,8 +1,32 @@
 package com.inscription.model;
 
+import com.inscription.sigil.AirborneSigil;
+import com.inscription.sigil.AntSpawnerSigil;
+import com.inscription.sigil.BeesWithinSigil;
+import com.inscription.sigil.BifurcatedStrikeSigil;
+import com.inscription.sigil.BoneKingSigil;
+import com.inscription.sigil.CorpseEaterSigil;
+import com.inscription.sigil.DiverSigil;
+import com.inscription.sigil.DamBuilderSigil;
+import com.inscription.sigil.FledglingSigil;
+import com.inscription.sigil.GuardianSigil;
+import com.inscription.sigil.HeftySigil;
+import com.inscription.sigil.HoarderSigil;
+import com.inscription.sigil.LeaderSigil;
+import com.inscription.sigil.LooseTailSigil;
+import com.inscription.sigil.ManyLivesSigil;
+import com.inscription.sigil.MightyLeapSigil;
+import com.inscription.sigil.RabbitHoleSigil;
 import com.inscription.sigil.SharpQuillsSigil;
 import com.inscription.sigil.Sigil;
+import com.inscription.sigil.SprinterSigil;
+import com.inscription.sigil.StinkySigil;
+import com.inscription.sigil.TouchOfDeathSigil;
 import com.inscription.sigil.TribeSigil;
+import com.inscription.sigil.TrifurcatedStrikeSigil;
+import com.inscription.sigil.UnkillableSigil;
+import com.inscription.sigil.WaterborneSigil;
+import com.inscription.sigil.WorthySacrificeSigil;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -13,47 +37,32 @@ import java.util.function.Supplier;
  * behavior, so they don't need their own class - just an entry here plus
  * whichever Sigils (0 to 3) give them an identity and/or an ability.
  * <p>
- * Cards with genuinely unique code (like BossCard overriding onAttack) still
- * get a real subclass - this catalog is for the common case, not a
+ * Cards with genuinely unique code (behavior beyond stats + sigils) would
+ * still get a real subclass - this catalog is for the common case, not a
  * replacement for inheritance where inheritance is actually earning its keep.
  * <p>
- * TODO - tribe cards below only carry their TribeSigil for now (stats +
- * tribe identity, no ability). The following still need their actual ability
- * sigil implemented and added to their factory list once the mechanic is
- * built and confirmed:
- * Avian: Kingfisher (dives after attacking - likely DiverSigil), Sparrow/
- *   Raven/Turkey Vulture (Flying - unblockable except by Flying), Raven Egg
- *   (transforms into Raven after 1 turn), Magpie (magnifying-glass ability,
- *   meaning unconfirmed).
- * Canine: Wolf Cub (transforms into Wolf after 1 turn), Bloodhound (unique
- *   icon, meaning unconfirmed), Alpha (looks like a buff to adjacent allies
- *   - needs an adjacency concept we don't have yet).
- * Hooved: Child 13 (infinity/dagger icon, meaning unconfirmed), Black Goat
- *   (sacrifices for 3 blood instead of 1), Elk Fawn (arrow icon +
- *   transforms after 1 turn, presumably into Elk), Elk/Pronghorn (arrow
- *   icon(s), meaning unconfirmed), Moose Buck (fist icon, meaning
- *   unconfirmed).
- * Insect: Mantis God/Mantis (fan-of-arrows icon, meaning unconfirmed), Bee
- *   (Flying), Beehive (looks like it spawns Bees over time), Worker Ant/
- *   Ant Queen (attack shown as an ant icon instead of a number - meaning
- *   unconfirmed; Ant Queen looks like it spawns Worker Ants), Cockroach
- *   (circular arrow+skull - looks like it revives), Corpse Maggots (icon
- *   meaning unconfirmed).
- * Reptile: Ouroboros (circular arrow+skull - looks like rebirth-on-death,
- *   stronger each time, matching the real card of the same name), Bullfrog
- *   (wing+shield icon, meaning unconfirmed), Skink (tail-drop/escape icon,
- *   meaning unconfirmed), Adder (skull-and-crossbones - likely poison/
- *   deathtouch), Rattler (icon unclear, needs a closer look).
- * Miscellaneous: Mole Man (wing+shield - likely Mighty Leap), Pack Rat
- *   (backpack icon - likely Trinket Bearer), Cat (infinity+dagger icon,
- *   meaning unconfirmed - possibly Many Lives, given "nine lives"), Mole
- *   (spiral/arrow icon, meaning unconfirmed), River Otter (fin/wave-tail
- *   icon, meaning unconfirmed), Skunk (stink-lines icon - likely Stinky),
- *   Warren (boxed-rabbit icon - likely Rabbit Hole), Beaver (two-cards+bug
- *   icon, meaning unconfirmed), Field Mice (boxed-mice icon, meaning
- *   unconfirmed - possibly Fecundity-like), Rat King (bone-cluster icon -
- *   likely Bone King), Great White (fin/tail icon, meaning unconfirmed),
- *   Bat (wing icon - likely Waterborne, matching the Avian wing-icon cards).
+ * Icon-to-sigil matches below were confirmed by direct visual comparison
+ * against the sigils reference sheet, not guessed - in particular this
+ * corrected an earlier tentative guess: the plain wing-curl icon (Sparrow,
+ * Raven, Turkey Vulture, Bee, Bat) is Airborne, not Waterborne - Waterborne's
+ * actual icon is a fish-tail-over-waves shape, matching Great White instead.
+ * <p>
+ * Assumption flagged for review: Hefty (Moose Buck) and Sprinter (Elk) both
+ * need a movement direction and neither card's art made the intended arrow
+ * direction unambiguous - defaulted both to RIGHT. Easy to flip later if
+ * that's wrong.
+ * <p>
+ * TODO - still unresolved (icon meaning unclear, or the matching sigil isn't
+ * built yet):
+ * Hooved: Pronghorn (crescent+arrow, likely Sprinter-related - genuinely
+ *   unclear whether it's a second Sprinter or something else).
+ * Reptile: Rattler (icon unclear, needs a closer look).
+ * Miscellaneous: Pack Rat (backpack icon - likely Trinket Bearer, needs an
+ *   item system), Mole (spiral icon, meaning unconfirmed), River Otter
+ *   (fin/wave-tail icon, meaning unconfirmed - close to Great White's
+ *   Waterborne icon but not a confident enough match to commit to), Field
+ *   Mice (boxed-mice icon, meaning unconfirmed - visually different enough
+ *   from Fecundity's icon that it wasn't a confident match either).
  * <p>
  * Excluded for now (too complex to implement yet): Stunted Wolf, Caged
  * Wolf, Long Elk, Strange Larva (and its further forms Strange Pupa and
@@ -71,88 +80,88 @@ public enum CardType {
     // ----- Avian -----
 
     KINGFISHER("Kingfisher", 1, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Avian"))),
-
-    RAVEN_EGG("Raven Egg", 0, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Avian"))),
-
-    SPARROW("Sparrow", 1, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Avian"))),
-
-    MAGPIE("Magpie", 1, 1, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Avian"))),
+        List.of(() -> new TribeSigil("Avian"), DiverSigil::new)),
 
     RAVEN("Raven", 2, 3, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Avian"))),
+        List.of(() -> new TribeSigil("Avian"), AirborneSigil::new)),
+
+    RAVEN_EGG("Raven Egg", 0, 2, 1, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Avian"), () -> new FledglingSigil(CardType.RAVEN::create))),
+
+    SPARROW("Sparrow", 1, 2, 1, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Avian"), AirborneSigil::new)),
+
+    MAGPIE("Magpie", 1, 1, 2, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Avian"), HoarderSigil::new)),
 
     TURKEY_VULTURE("Turkey Vulture", 3, 3, 8, ResourceType.BONES,
-        List.of(() -> new TribeSigil("Avian"))),
+        List.of(() -> new TribeSigil("Avian"), AirborneSigil::new)),
 
     // ----- Canine -----
 
-    WOLF_CUB("Wolf Cub", 1, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Canine"))),
-
-    BLOODHOUND("Bloodhound", 2, 3, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Canine"))),
-
     WOLF("Wolf", 3, 2, 2, ResourceType.BLOOD,
         List.of(() -> new TribeSigil("Canine"))),
+
+    WOLF_CUB("Wolf Cub", 1, 1, 1, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Canine"), () -> new FledglingSigil(CardType.WOLF::create))),
+
+    BLOODHOUND("Bloodhound", 2, 3, 2, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Canine"), GuardianSigil::new)),
 
     COYOTE("Coyote", 2, 1, 4, ResourceType.BONES,
         List.of(() -> new TribeSigil("Canine"))),
 
     ALPHA("Alpha", 1, 2, 4, ResourceType.BONES,
-        List.of(() -> new TribeSigil("Canine"))),
+        List.of(() -> new TribeSigil("Canine"), LeaderSigil::new)),
 
     // ----- Hooved -----
 
+    ELK("Elk", 2, 4, 2, ResourceType.BLOOD,
+        List.of(() -> new TribeSigil("Hooved"), () -> new SprinterSigil(SprinterSigil.RIGHT))),
+
     CHILD_13("Child 13", 0, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
+        List.of(() -> new TribeSigil("Hooved"), ManyLivesSigil::new)),
 
     BLACK_GOAT("Black Goat", 0, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
+        List.of(() -> new TribeSigil("Hooved"), WorthySacrificeSigil::new)),
 
     ELK_FAWN("Elk Fawn", 1, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
-
-    ELK("Elk", 2, 4, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
+        List.of(() -> new TribeSigil("Hooved"), () -> new FledglingSigil(CardType.ELK::create))),
 
     PRONGHORN("Pronghorn", 1, 3, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
+        List.of(() -> new TribeSigil("Hooved"), () -> new SprinterSigil(SprinterSigil.RIGHT))),
 
     MOOSE_BUCK("Moose Buck", 3, 7, 3, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Hooved"))),
+        List.of(() -> new TribeSigil("Hooved"), () -> new HeftySigil(HeftySigil.RIGHT))),
 
     // ----- Insect -----
 
     MANTIS_GOD("Mantis God", 1, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), TrifurcatedStrikeSigil::new)),
 
     BEE("Bee", 1, 1, 0, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), AirborneSigil::new)),
 
     BEEHIVE("Beehive", 0, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), BeesWithinSigil::new)),
 
     MANTIS("Mantis", 1, 1, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), BifurcatedStrikeSigil::new)),
 
     RING_WORM("Ring Worm", 0, 1, 1, ResourceType.BLOOD,
         List.of(() -> new TribeSigil("Insect"))),
 
     WORKER_ANT("Worker Ant", 0, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), () -> new TribeSigil("Ant"))),
 
     ANT_QUEEN("Ant Queen", 0, 3, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), () -> new TribeSigil("Ant"), AntSpawnerSigil::new)),
 
     COCKROACH("Cockroach", 1, 1, 4, ResourceType.BONES,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), UnkillableSigil::new)),
 
     CORPSE_MAGGOTS("Corpse Maggots", 1, 2, 5, ResourceType.BONES,
-        List.of(() -> new TribeSigil("Insect"))),
+        List.of(() -> new TribeSigil("Insect"), CorpseEaterSigil::new)),
 
     // ----- Reptile -----
 
@@ -160,16 +169,16 @@ public enum CardType {
         List.of(() -> new TribeSigil("Reptile"))),
 
     OUROBOROS("Ouroboros", 1, 1, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Reptile"))),
+        List.of(() -> new TribeSigil("Reptile"), UnkillableSigil::new)),
 
     BULLFROG("Bullfrog", 1, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Reptile"))),
+        List.of(() -> new TribeSigil("Reptile"), MightyLeapSigil::new)),
 
     SKINK("Skink", 1, 2, 1, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Reptile"))),
+        List.of(() -> new TribeSigil("Reptile"), LooseTailSigil::new)),
 
     ADDER("Adder", 1, 1, 2, ResourceType.BLOOD,
-        List.of(() -> new TribeSigil("Reptile"))),
+        List.of(() -> new TribeSigil("Reptile"), TouchOfDeathSigil::new)),
 
     RIVER_SNAPPER("River Snapper", 1, 6, 2, ResourceType.BLOOD,
         List.of(() -> new TribeSigil("Reptile"))),
@@ -179,7 +188,7 @@ public enum CardType {
 
     // ----- Miscellaneous (no tribe) -----
 
-    MOLE_MAN("Mole Man", 0, 6, 1, ResourceType.BLOOD, List.of()),
+    MOLE_MAN("Mole Man", 0, 6, 1, ResourceType.BLOOD, List.of(MightyLeapSigil::new)),
 
     AMALGAM("Amalgam", 3, 3, 2, ResourceType.BLOOD, List.of()),
 
@@ -187,29 +196,34 @@ public enum CardType {
 
     URAYULI("Urayuli", 7, 7, 4, ResourceType.BLOOD, List.of()),
 
-    CAT("Cat", 0, 1, 1, ResourceType.BLOOD, List.of()),
+    CAT("Cat", 0, 1, 1, ResourceType.BLOOD, List.of(ManyLivesSigil::new)),
 
     MOLE("Mole", 0, 4, 1, ResourceType.BLOOD, List.of()),
 
     RIVER_OTTER("River Otter", 1, 1, 1, ResourceType.BLOOD, List.of()),
 
-    SKUNK("Skunk", 0, 3, 1, ResourceType.BLOOD, List.of()),
+    SKUNK("Skunk", 0, 3, 1, ResourceType.BLOOD, List.of(StinkySigil::new)),
 
-    WARREN("Warren", 0, 2, 1, ResourceType.BLOOD, List.of()),
+    WARREN("Warren", 0, 2, 1, ResourceType.BLOOD, List.of(RabbitHoleSigil::new)),
 
-    BEAVER("Beaver", 1, 3, 1, ResourceType.BLOOD, List.of()),
+    BEAVER("Beaver", 1, 3, 1, ResourceType.BLOOD, List.of(DamBuilderSigil::new)),
 
     FIELD_MICE("Field Mice", 2, 2, 2, ResourceType.BLOOD, List.of()),
 
-    RAT_KING("Rat King", 2, 1, 2, ResourceType.BLOOD, List.of()),
+    RAT_KING("Rat King", 2, 1, 2, ResourceType.BLOOD, List.of(BoneKingSigil::new)),
 
-    GREAT_WHITE("Great White", 4, 2, 3, ResourceType.BLOOD, List.of()),
+    GREAT_WHITE("Great White", 4, 2, 3, ResourceType.BLOOD, List.of(WaterborneSigil::new)),
 
     GRIZZLY("Grizzly", 4, 6, 3, ResourceType.BLOOD, List.of()),
 
     OPOSSUM("Opossum", 1, 1, 2, ResourceType.BONES, List.of()),
 
-    BAT("Bat", 2, 1, 4, ResourceType.BONES, List.of());
+    BAT("Bat", 2, 1, 4, ResourceType.BONES, List.of(AirborneSigil::new)),
+
+    // ----- Obstacles (spawned by sigils, not drawn/paid for like ordinary
+    // cards - cost is 0 since nobody ever pays it directly) -----
+
+    DAM("Dam", 0, 2, 0, ResourceType.BLOOD, List.of());
 
     // Add new ordinary cards as one line above - name, attack, health, cost,
     // costType, then a list of Sigil suppliers (identity tags and/or
@@ -240,6 +254,7 @@ public enum CardType {
      */
     public Card create() {
         Card card = new Card(cardName, attack, health, cost, costType);
+        card.sourceType = this;
         for (Supplier<Sigil> factory : sigilFactories) {
             card.addSigil(factory.get());
         }

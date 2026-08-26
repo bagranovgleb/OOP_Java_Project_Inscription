@@ -5,6 +5,7 @@ public enum GameEventType {
     ATTACK,
     DEATH,
     TURN_START,
+    TURN_END,
     MOVE,
     PLACE
 }

@@ -1,7 +1,8 @@
 # Maven
 target/
 *.class
-
+*.jar
+ 
 # NetBeans
 nbproject/private/
 build/
@@ -9,16 +10,21 @@ nbbuild/
 dist/
 nbdist/
 .nb-gradle/
-
+Styles/
+ 
 # IDE
 .idea/
 *.iml
 *.iws
 .vscode/
-
+.classpath
+.project
+.settings/
+ 
 # OS
 .DS_Store
 Thumbs.db
-
+ 
 # Logs
 *.log
+ 

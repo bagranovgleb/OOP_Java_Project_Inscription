@@ -7,7 +7,7 @@ import com.inscription.model.GameEventType;
 import com.inscription.model.SpecialCardType;
 import com.inscription.player.Player;
 
-/** When this card is played, a Rabbit is created in the owner's hand. */
+/** When this card is played, a Rabbit is created in the owner's hand. Tagged with ConjuredMarker, same as Bees Within and The Smoke - conjured for this fight, not something that should linger in the deck afterward. */
 public class RabbitHoleSigil implements Sigil {
 
     @Override
@@ -17,7 +17,9 @@ public class RabbitHoleSigil implements Sigil {
         }
         Player controllingPlayer = ownerOf(owner, context);
         if (controllingPlayer != null) {
-            controllingPlayer.addToHand(SpecialCardType.RABBIT.create());
+            Card rabbit = SpecialCardType.RABBIT.create();
+            rabbit.addSigil(new ConjuredMarker());
+            controllingPlayer.addToHand(rabbit);
         }
     }
 

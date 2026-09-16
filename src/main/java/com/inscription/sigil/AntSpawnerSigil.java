@@ -7,7 +7,7 @@ import com.inscription.model.GameEvent;
 import com.inscription.model.GameEventType;
 import com.inscription.player.Player;
 
-/** When this card is played, an Ant (Worker Ant) is created in the owner's hand. */
+/** When this card is played, an Ant (Worker Ant) is created in the owner's hand. Tagged with ConjuredMarker, same as Bees Within and The Smoke - conjured for this fight, not something that should linger in the deck afterward. */
 public class AntSpawnerSigil implements Sigil {
 
     @Override
@@ -17,7 +17,9 @@ public class AntSpawnerSigil implements Sigil {
         }
         Player controllingPlayer = ownerOf(owner, context);
         if (controllingPlayer != null) {
-            controllingPlayer.addToHand(CardType.WORKER_ANT.create());
+            Card ant = CardType.WORKER_ANT.create();
+            ant.addSigil(new ConjuredMarker());
+            controllingPlayer.addToHand(ant);
         }
     }
 

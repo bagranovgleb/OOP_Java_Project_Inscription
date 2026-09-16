@@ -23,6 +23,19 @@
             <version>5.10.2</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- JavaFX - UNVERIFIED in this sandbox (no network access to Maven Central here).
+             Please confirm this actually resolves and compiles on your own machine. -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>21.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>21.0.2</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -37,7 +50,18 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.2.0</version>
                 <configuration>
-                    <mainClass>com.inscription.cli.ConsoleGame</mainClass>
+                    <mainClass>com.inscription.cli.RunGame</mainClass>
+                </configuration>
+            </plugin>
+            <!-- Run the JavaFX GUI with: mvn javafx:run
+                 (the console version above still runs with: mvn exec:java)
+                 UNVERIFIED in this sandbox - please confirm on your own machine. -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>com.inscription.gui.InscriptionApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>

@@ -57,6 +57,17 @@ public class Card {
         sigils.add(sigil);
     }
 
+    /**
+     * Removes a specific sigil instance - used by sigils that expire
+     * themselves (e.g. a temporary Airborne grant removing itself once its
+     * owner's next turn starts). Removes by reference, not by name, so a
+     * card with several sigils of the same kind only loses the exact one
+     * that asked to be removed.
+     */
+    public void removeSigil(Sigil sigil) {
+        sigils.remove(sigil);
+    }
+
     /** Returns a read-only view; callers cannot add/remove sigils from outside. */
     public List<Sigil> getSigils() {
         return List.copyOf(sigils);
@@ -202,7 +213,11 @@ public class Card {
      * of routing everything through the Sigil interface.
      */
     public final void applySigils(GameEvent event, GameContext context) {
-        for (Sigil sigil : sigils) {
+        // Iterate a defensive copy: a sigil can legitimately remove itself
+        // during its own apply() (e.g. a temporary grant expiring), and
+        // mutating the live list mid-iteration would throw
+        // ConcurrentModificationException otherwise.
+        for (Sigil sigil : List.copyOf(sigils)) {
             sigil.apply(event, this, context);
         }
     }
@@ -217,11 +232,64 @@ public class Card {
      * instead of the stored one - used by GameEngine.getDisplayAttack() so a
      * UI can show a card's real, current attack (e.g. an Ant's swarm-scaled
      * power) without this class needing any awareness of the board itself.
+     * <p>
+     * Also lists the card's visible sigils - not just its original ones,
+     * but anything added later too (e.g. a sigil gained via Mysterious
+     * Stones), so a power-up is actually visible during a fight, not just
+     * at the moment the event granted it.
      */
     public String describe(int displayAttack) {
         String costPart = cost > 0
             ? String.format(" {cost: %d %s}", cost, costType.name().toLowerCase())
             : "";
-        return String.format("%s [%d/%d]%s%s", name, displayAttack, health, costPart, exhausted ? " (exhausted)" : "");
+        String sigilPart = visibleSigilsSuffix();
+        String exhaustedPart = exhausted ? " (exhausted)" : "";
+        return String.format("%s [%d/%d]%s%s%s", name, displayAttack, health, costPart, sigilPart, exhaustedPart);
+    }
+
+    /** A short bracketed list of this card's real, player-visible abilities (e.g. " [Sharp Quills]"), or "" if it has none worth showing. */
+    private String visibleSigilsSuffix() {
+        List<String> names = getVisibleSigils().stream()
+            .map(Sigil::getName)
+            .filter(n -> !n.equals("Extra Sigil"))
+            .toList();
+        return names.isEmpty() ? "" : " [" + String.join(", ", names) + "]";
+    }
+
+    /**
+     * Combines two cards into one: attack and max health are the sum of
+     * both, and every sigil from both originals carries over onto the
+     * result (duplicates included - e.g. two Squirrels would produce a card
+     * with two "Squirrel" tribe tags, which is harmless since hasSigil()
+     * only cares whether a name is present, not how many times). The
+     * result's name, cost, and cost type come from the first card - callers
+     * combining two copies of "the same card" (the Mycologists event) won't
+     * notice, since both are identical anyway.
+     * <p>
+     * The result has no sourceType (same limitation as any ad-hoc card) -
+     * a "make a copy of me" sigil wouldn't work on a stitched card.
+     */
+    /**
+     * Fuses two cards into one: combined attack, combined health, and the
+     * union of their sigils - not a concatenation. Fusing two copies of the
+     * same card (e.g. two Mantis Gods) is a real, common case, and their
+     * sigils genuinely are the same thing, not two separate copies of it -
+     * a fused card should never end up with a sigil listed twice.
+     */
+    public static Card stitch(Card a, Card b) {
+        int combinedAttack = a.getAttack() + b.getAttack();
+        int combinedHealth = a.getMaxHealth() + b.getMaxHealth();
+        Card result = new Card(a.name, combinedAttack, combinedHealth, a.cost, a.costType);
+        for (Sigil sigil : a.getSigils()) {
+            if (!result.hasSigil(sigil.getName())) {
+                result.addSigil(sigil);
+            }
+        }
+        for (Sigil sigil : b.getSigils()) {
+            if (!result.hasSigil(sigil.getName())) {
+                result.addSigil(sigil);
+            }
+        }
+        return result;
     }
 }

@@ -1,7 +1,7 @@
 package com.inscription.engine;
 
 import com.inscription.board.Board;
-import com.inscription.board.Slot;
+import com.inscription.board.ReadOnlySlot;
 import com.inscription.exception.ConflictingModifierException;
 import com.inscription.exception.InvalidSacrificeException;
 import com.inscription.model.Card;
@@ -10,6 +10,8 @@ import com.inscription.model.GameEventType;
 import com.inscription.model.SpecialCardType;
 import com.inscription.modifier.ChallengeModifier;
 import com.inscription.player.Player;
+import com.inscription.sigil.ConjuredMarker;
+import com.inscription.totem.ActiveTotem;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,6 +47,34 @@ public class GameEngine {
         board.placeCard(isPlayerSide, lane, card);
         card.applySigils(new GameEvent(GameEventType.PLACE, card, null), currentContext());
         triggerGuardianResponse(isPlayerSide, lane);
+        applyActiveTotemIfMatching(isPlayerSide, card);
+    }
+
+    /**
+     * Places a card into the opponent's reserve row - a quiet placement,
+     * unlike placeCard(). A reserve card isn't in play yet, so PLACE
+     * doesn't fire (no Guardian reaction, no totem sigil grant) until it
+     * actually promotes into the front row - see promoteReserveCards().
+     */
+    public void placeReserveCard(int lane, Card card) {
+        board.placeReserveCard(lane, card);
+    }
+
+    /**
+     * If this card's owner has an active totem matching one of the card's
+     * own tribe tags, grants it a fresh instance of the totem's sigil - a
+     * real, lasting ability attached via addSigil(), not a computed bonus.
+     * This is deliberate: every existing hasSigil()-based check throughout
+     * the engine (Airborne's bypass, Mighty Leap, Stinky, ...) then works
+     * on a totem-granted ability automatically, with no special-casing
+     * needed anywhere else.
+     */
+    private void applyActiveTotemIfMatching(boolean isPlayerSide, Card card) {
+        Player owner = isPlayerSide ? player : opponent;
+        ActiveTotem totem = owner.getActiveTotem();
+        if (totem != null && card.hasSigil(totem.getTribe()) && !card.hasSigil(totem.getGrantedSigilName())) {
+            card.addSigil(totem.createGrantedSigil());
+        }
     }
 
     /**
@@ -113,6 +143,23 @@ public class GameEngine {
                 fireEventIfOccupied(occupant, GameEventType.TURN_START, context);
             }
         }
+    }
+
+    private boolean skipOpponentNextTurn;
+
+    /** Requests that the opponent's next turn be skipped entirely - used by the Hourglass item. */
+    public void requestSkipOpponentNextTurn() {
+        skipOpponentNextTurn = true;
+    }
+
+    /**
+     * Checks and consumes the skip-next-turn request in one step, so it can
+     * only ever skip a single turn, not every turn from then on.
+     */
+    public boolean consumeSkipOpponentNextTurn() {
+        boolean wasSet = skipOpponentNextTurn;
+        skipOpponentNextTurn = false;
+        return wasSet;
     }
 
     /**
@@ -198,10 +245,12 @@ public class GameEngine {
      * Attacks from a specific board lane. Which opposing lane(s) get hit
      * depends on the attacker's sigils: normally just the one directly
      * across, but Bifurcated Strike hits the two lanes adjacent to that one
-     * instead, and Trifurcated Strike hits all three. Only the genuine
-     * "directly across" lane falls back to face damage when its target is
-     * empty - the extra lanes from a multi-strike sigil are wasted swings if
-     * nothing's there, not free damage to the player.
+     * instead, and Trifurcated Strike hits all three. Every targeted lane
+     * falls back to face damage when its target is empty or otherwise
+     * unblocked - a multi-strike sigil's extra lanes are real attacks in
+     * their own right, not wasted swings that only "count" on the main
+     * lane (an earlier version of this method treated them as wasted;
+     * that was incorrect and has been fixed).
      * <p>
      * Marks the attacker exhausted (so a single bell ring can't attack twice
      * with the same card) and fires a MOVE event afterward, so a Diver
@@ -216,8 +265,7 @@ public class GameEngine {
 
         Set<Card> relocatedBurrowers = new HashSet<>();
         for (int targetLane : determineTargetLanes(attacker, lane, laneCount)) {
-            boolean isDirectlyAcross = targetLane == lane;
-            strikeLane(attacker, effectiveAttack, attackerIsPlayerSide, targetLane, isDirectlyAcross, relocatedBurrowers);
+            strikeLane(attacker, effectiveAttack, attackerIsPlayerSide, targetLane, relocatedBurrowers);
         }
 
         attacker.move();
@@ -226,6 +274,49 @@ public class GameEngine {
         List<int[]> combatDeathVacancies = captureDeathVacancies();
         board.clearDeadCards();
         triggerCorpseEaters(combatDeathVacancies);
+        for (int[] vacancy : combatDeathVacancies) {
+            boolean isOpponentSide = vacancy[0] == 0;
+            if (isOpponentSide) {
+                promoteReserveIntoLane(vacancy[1]);
+            }
+        }
+    }
+
+    /**
+     * Promotes any reserve cards into now-empty front lanes (see
+     * Board.promoteReserveIfPossible()) - and, since a promoted card is now
+     * genuinely in play for the first time, fires the same PLACE event and
+     * Guardian/totem checks a normal placement would, rather than treating
+     * it as a quiet move. Called both mid-combat (a front lane just died)
+     * and explicitly at the start of the opponent's own turn (Battle
+     * .opponentTurn()) - the opponent only ever places new cards into
+     * reserve, so this turn-start call is what actually lets them reach
+     * the front row at all, not just mid-fight vacancies.
+     */
+    public void promoteReserveCards() {
+        var frontSlots = board.getOpponentSlots();
+        for (int lane = 0; lane < frontSlots.length; lane++) {
+            promoteReserveIntoLane(lane);
+        }
+    }
+
+    /**
+     * Promotes a reserve card into exactly one specific front lane, if
+     * possible - used mid-combat (see resolveLaneAttack()) to only ever
+     * promote into a lane that just died THIS attack, never into some
+     * other lane that merely happens to already be empty (which could be
+     * empty for a completely unrelated reason, like never having had
+     * anything placed there yet this turn at all - promoting that lane
+     * mid-combat would let a card attack the same turn it was placed into
+     * reserve, breaking the "one full turn of preparation" rule).
+     */
+    private void promoteReserveIntoLane(int lane) {
+        if (board.promoteReserveIfPossible(lane)) {
+            Card promoted = board.peekCard(false, lane);
+            promoted.applySigils(new GameEvent(GameEventType.PLACE, promoted, null), currentContext());
+            triggerGuardianResponse(false, lane);
+            applyActiveTotemIfMatching(false, promoted);
+        }
     }
 
     /**
@@ -409,62 +500,113 @@ public class GameEngine {
 
     /**
      * Resolves the attacker's strike against one specific target lane, using
-     * an already-computed attack amount (see computeEffectiveAttack).
-     * isDirectlyAcross controls whether an empty/unblocked target falls back
-     * to face damage - true only for the lane genuinely opposite the
-     * attacker, false for every "extra" lane a multi-strike sigil adds.
+     * an already-computed attack amount (see computeEffectiveAttack). Every
+     * lane resolves the same way regardless of whether it's the one
+     * genuinely opposite the attacker or an "extra" lane a multi-strike
+     * sigil adds - an unblocked target always falls back to face damage,
+     * symmetrically.
      */
     private void strikeLane(Card attacker, int effectiveAttack, boolean attackerIsPlayerSide, int targetLane,
-                             boolean isDirectlyAcross, Set<Card> relocatedBurrowers) {
+                             Set<Card> relocatedBurrowers) {
         var defenderSlots = attackerIsPlayerSide ? board.getOpponentSlots() : board.getPlayerSlots();
         Card defender = defenderSlots[targetLane].getOccupant();
 
-        if (defender == null) {
+        if (defender == null && effectiveAttack > 0) {
             // A Burrower elsewhere on the defending side relocates into an
             // attacked empty lane to block it, before this would otherwise
             // become face damage (or a wasted swing, for an extra lane).
+            // Only worth doing if the attack would actually deal damage -
+            // a 0-attack strike (a Stump, Grand Fir, Snowy Fir) threatens
+            // nothing either way, so there's no reason to burn the
+            // relocation blocking it.
             defender = relocateBurrowerIfPresent(attackerIsPlayerSide, targetLane, relocatedBurrowers);
         }
 
         if (defender != null && defender.hasSigil("Loose Tail")) {
-            // Evades entirely - the strike lands on nothing, not even the
-            // tail it leaves behind.
-            handleLooseTail(attackerIsPlayerSide, targetLane, defender);
-            return;
+            // Can only escape if the neighbor lane is genuinely free - the
+            // attack itself is never skipped outright, it just ends up
+            // landing on whatever's left behind (the Tail decoy) rather
+            // than the fleeing creature, if the flee actually succeeds.
+            // Falls straight through either way: defender becomes the Tail
+            // (successful escape) or stays the original creature (blocked
+            // escape, takes the hit head-on like any normal defender).
+            defender = attemptLooseTailEscape(attackerIsPlayerSide, targetLane, defender);
         }
 
         if (defender != null && defender.canBeTargeted() && !bypassesDefender(attacker, defender)) {
+            int defenderHealthBeforeHit = defender.getHealth();
             resolveAttack(attacker, defender, effectiveAttack);
+            if (!defender.isAlive()) {
+                applyPiercingOverkill(attackerIsPlayerSide, targetLane, effectiveAttack - defenderHealthBeforeHit);
+            }
             return;
         }
-        if (isDirectlyAcross) {
-            // Lane is either empty (and no Burrower blocked it), its
-            // defender can't be targeted right now (e.g. Waterborne), or an
-            // Airborne attacker is skipping it - either way, nothing blocks
-            // the attack and it shifts the shared health scale instead of
-            // hitting a per-player life total.
-            dealFaceDamage(attackerIsPlayerSide, effectiveAttack);
-        }
-        // Otherwise this was an "extra" lane from a multi-strike sigil with
-        // no valid target - the swing is simply wasted, no face damage.
+        // Lane is either empty (and no Burrower blocked it), its defender
+        // can't be targeted right now (e.g. Waterborne), or an Airborne
+        // attacker is skipping it - either way, nothing blocks the attack,
+        // so it shifts the shared health scale instead of hitting a
+        // per-player life total. This applies uniformly to every targeted
+        // lane, not just the one directly across - a multi-strike sigil's
+        // extra lanes are real attacks in their own right, not consolation
+        // swings that only "count" if they happen to land on the main lane.
+        dealFaceDamage(attackerIsPlayerSide, effectiveAttack);
     }
 
     /**
-     * Loose Tail's escape: the fleeing card's lane is refilled with a Tail
-     * decoy, and the fleeing card itself moves one lane to the right if
-     * that space is open. If there's nowhere to flee to (off the board or
-     * blocked), it simply escapes the board entirely rather than being
-     * force-placed somewhere the sigil didn't actually specify.
+     * Loose Tail's escape: if the lane one to the right is genuinely free,
+     * the fleeing card moves there (surviving, untouched by this attack),
+     * and its original lane is refilled with a Tail decoy that becomes the
+     * new target for THIS SAME attack - the strike still lands, just on
+     * the Tail instead. If there's nowhere to flee to (off the board or
+     * the neighbor lane is occupied), the escape doesn't happen at all -
+     * no Tail is dropped, and the original creature simply takes the hit
+     * normally, exactly as if it never had this sigil for this one attack.
+     * Returns the Tail (on a successful escape) or the original card
+     * unchanged (on a blocked one) - whichever the attack should now
+     * resolve against.
      */
-    private void handleLooseTail(boolean attackerIsPlayerSide, int lane, Card fleeingCard) {
+    private Card attemptLooseTailEscape(boolean attackerIsPlayerSide, int lane, Card fleeingCard) {
         boolean defenderIsPlayerSide = !attackerIsPlayerSide;
-        board.removeCard(defenderIsPlayerSide, lane);
-        board.placeCard(defenderIsPlayerSide, lane, SpecialCardType.TAIL.create());
-
         int fleeLane = lane + 1;
         int laneCount = board.getPlayerSlots().length;
-        if (fleeLane < laneCount && board.peekCard(defenderIsPlayerSide, fleeLane) == null) {
-            board.placeCard(defenderIsPlayerSide, fleeLane, fleeingCard);
+        if (fleeLane >= laneCount || board.peekCard(defenderIsPlayerSide, fleeLane) != null) {
+            return fleeingCard; // nowhere to flee to - the escape doesn't happen
+        }
+        board.removeCard(defenderIsPlayerSide, lane);
+        Card tail = SpecialCardType.TAIL.create();
+        tail.addSigil(new ConjuredMarker());
+        board.placeCard(defenderIsPlayerSide, lane, tail);
+        board.placeCard(defenderIsPlayerSide, fleeLane, fleeingCard);
+        return tail;
+    }
+
+    /**
+     * When a hit on the opponent's front row deals more damage than needed
+     * to kill its target, the excess pierces through into whatever's
+     * waiting in the opponent's reserve row behind it - or straight to the
+     * health scale if nothing's there. Only the opponent has a reserve
+     * row, so this only ever triggers when the player's attack is what
+     * killed the front-row occupant. If the excess also kills the reserve
+     * card, anything left over goes to the health scale too - there's no
+     * third row to pierce into.
+     */
+    private void applyPiercingOverkill(boolean attackerIsPlayerSide, int lane, int overkill) {
+        if (overkill <= 0 || !attackerIsPlayerSide) {
+            return;
+        }
+        Card reserveDefender = board.peekReserveCard(lane);
+        if (reserveDefender == null) {
+            healthScale.damageOpponent(overkill);
+            return;
+        }
+        int reserveHealthBeforeHit = reserveDefender.getHealth();
+        reserveDefender.takeDamage(overkill);
+        announceDeathIfNeeded(reserveDefender, currentContext());
+        if (!reserveDefender.isAlive()) {
+            int furtherOverkill = overkill - reserveHealthBeforeHit;
+            if (furtherOverkill > 0) {
+                healthScale.damageOpponent(furtherOverkill);
+            }
         }
     }
 
@@ -515,9 +657,10 @@ public class GameEngine {
     private void creditBonesForFallenCards() {
         creditBonesForFallenCards(board.getPlayerSlots(), player);
         creditBonesForFallenCards(board.getOpponentSlots(), opponent);
+        creditBonesForFallenCards(board.getOpponentReserveSlots(), opponent);
     }
 
-    private void creditBonesForFallenCards(Slot[] slots, Player owner) {
+    private void creditBonesForFallenCards(ReadOnlySlot[] slots, Player owner) {
         for (var slot : slots) {
             Card occupant = slot.getOccupant();
             if (occupant != null && !occupant.isAlive()) {
@@ -537,6 +680,9 @@ public class GameEngine {
         Card card = board.peekCard(isPlayerSide, lane);
         if (card == null) {
             throw new InvalidSacrificeException("No card in lane " + lane + " to sacrifice");
+        }
+        if (card.hasSigil("Unsacrificeable")) {
+            throw new InvalidSacrificeException(card.getName() + " cannot be sacrificed");
         }
         if (!card.hasSigil("Many Lives")) {
             board.removeCard(isPlayerSide, lane);

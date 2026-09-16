@@ -6,7 +6,7 @@ import com.inscription.model.CardType;
 import com.inscription.model.GameEvent;
 import com.inscription.model.GameEventType;
 
-/** When this card is played, Dams are created on adjacent empty spaces. */
+/** When this card is played, Dams are created on adjacent empty spaces. Tagged with ConjuredMarker, same as Bees Within and The Smoke - conjured for this fight, not something that should linger in the deck afterward. */
 public class DamBuilderSigil implements Sigil {
 
     @Override
@@ -24,10 +24,14 @@ public class DamBuilderSigil implements Sigil {
         var slots = isPlayerSide ? board.getPlayerSlots() : board.getOpponentSlots();
 
         if (lane - 1 >= 0 && slots[lane - 1].getOccupant() == null) {
-            board.placeCard(isPlayerSide, lane - 1, CardType.DAM.create());
+            Card dam = CardType.DAM.create();
+            dam.addSigil(new ConjuredMarker());
+            board.placeCard(isPlayerSide, lane - 1, dam);
         }
         if (lane + 1 < slots.length && slots[lane + 1].getOccupant() == null) {
-            board.placeCard(isPlayerSide, lane + 1, CardType.DAM.create());
+            Card dam = CardType.DAM.create();
+            dam.addSigil(new ConjuredMarker());
+            board.placeCard(isPlayerSide, lane + 1, dam);
         }
     }
 

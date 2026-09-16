@@ -6,9 +6,9 @@ import com.inscription.model.GameEvent;
 
 /**
  * On the opponent's turn, creatures attacking this card's space attack
- * directly instead - this card never blocks. Unlike Diver (which cycles
- * between submerged and surfaced), this is permanent: reuses the same
- * preventsTargeting hook, just always on.
+ * directly instead - this card never blocks, permanently, from the
+ * moment it's placed until it dies. Uses the preventsTargeting hook,
+ * always returning true.
  */
 public class WaterborneSigil implements Sigil {
 

@@ -10,6 +10,8 @@ import com.inscription.player.Player;
 /**
  * When this card is played, a copy of it enters the owner's hand. Uses
  * Card.getSourceType() to build the copy - same technique as Unkillable.
+ * Tagged with ConjuredMarker, same as Bees Within and The Smoke - conjured
+ * for this fight, not something that should linger in the deck afterward.
  */
 public class FecunditySigil implements Sigil {
 
@@ -24,7 +26,9 @@ public class FecunditySigil implements Sigil {
         }
         Player controllingPlayer = ownerOf(owner, context);
         if (controllingPlayer != null) {
-            controllingPlayer.addToHand(sourceType.create());
+            Card copy = sourceType.create();
+            copy.addSigil(new ConjuredMarker());
+            controllingPlayer.addToHand(copy);
         }
     }
 

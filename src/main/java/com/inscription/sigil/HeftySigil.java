@@ -1,23 +1,27 @@
 package com.inscription.sigil;
 
+import com.inscription.board.Board;
 import com.inscription.engine.GameContext;
 import com.inscription.model.Card;
 import com.inscription.model.GameEvent;
 import com.inscription.model.GameEventType;
 
 /**
- * At the end of the owner's turn, this and adjacent cards move one lane in a
- * fixed direction. Order matters here: to shift a contiguous group without
- * cards blocking each other, whichever card is already leading in the
- * direction of travel must move first to clear space - moving right, the
- * right neighbor goes first; moving left, the left neighbor goes first.
+ * At the end of the owner's turn, this card advances one lane in its
+ * current direction, pushing whatever's directly in its path one further
+ * lane in that same direction to make room - not the whole row, just the
+ * one card actually standing in the way. If there's no room to push that
+ * card into (edge of board, or the lane beyond it is also occupied), this
+ * direction is blocked - the sigil permanently reverses and tries the
+ * opposite direction instead. If both directions are blocked, nothing
+ * moves this turn.
  */
 public class HeftySigil implements Sigil {
 
     public static final int LEFT = -1;
     public static final int RIGHT = 1;
 
-    private final int direction;
+    private int direction;
 
     public HeftySigil(int direction) {
         this.direction = direction;
@@ -34,27 +38,35 @@ public class HeftySigil implements Sigil {
         }
         boolean isPlayerSide = location[0] == 1;
         int lane = location[1];
-        var slots = isPlayerSide ? context.getBoard().getPlayerSlots() : context.getBoard().getOpponentSlots();
-        Card left = (lane - 1 >= 0) ? slots[lane - 1].getOccupant() : null;
-        Card right = (lane + 1 < slots.length) ? slots[lane + 1].getOccupant() : null;
+        Board board = context.getBoard();
+        int laneCount = board.getPlayerSlots().length;
 
-        if (direction > 0) {
-            if (right != null) {
-                tryMove(right, context, direction);
-            }
-            tryMove(owner, context, direction);
-            if (left != null) {
-                tryMove(left, context, direction);
-            }
-        } else {
-            if (left != null) {
-                tryMove(left, context, direction);
-            }
-            tryMove(owner, context, direction);
-            if (right != null) {
-                tryMove(right, context, direction);
+        if (!canAdvance(board, isPlayerSide, lane, laneCount, direction)) {
+            direction = -direction; // this way is blocked - reverse and try the other way instead
+            if (!canAdvance(board, isPlayerSide, lane, laneCount, direction)) {
+                return; // blocked both ways - stays put entirely this turn
             }
         }
+
+        int targetLane = lane + direction;
+        Card inTheWay = board.peekCard(isPlayerSide, targetLane);
+        if (inTheWay != null) {
+            tryMove(inTheWay, context, direction); // canAdvance() already confirmed this has room
+        }
+        tryMove(owner, context, direction);
+    }
+
+    /** Whether the card at 'lane' could actually advance one step in 'direction' - either the next lane is free, or it's occupied but that one occupant could itself be pushed one further (the same depth of pushing this sigil has always supported). */
+    private boolean canAdvance(Board board, boolean isPlayerSide, int lane, int laneCount, int dir) {
+        int targetLane = lane + dir;
+        if (targetLane < 0 || targetLane >= laneCount) {
+            return false;
+        }
+        if (board.peekCard(isPlayerSide, targetLane) == null) {
+            return true;
+        }
+        int beyondLane = targetLane + dir;
+        return beyondLane >= 0 && beyondLane < laneCount && board.peekCard(isPlayerSide, beyondLane) == null;
     }
 
     @Override

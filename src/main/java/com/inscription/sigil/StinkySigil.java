@@ -1,8 +1,5 @@
 package com.inscription.sigil;
 
-import com.inscription.engine.GameContext;
-import com.inscription.model.Card;
-import com.inscription.model.GameEvent;
 
 /**
  * The creature directly opposing this card (same lane, other side) deals 1
@@ -19,12 +16,7 @@ import com.inscription.model.GameEvent;
  * reflect its full, un-reduced attack. A true continuous stat recalculation
  * would need more infrastructure than this one effect currently justifies.
  */
-public class StinkySigil implements Sigil {
-
-    @Override
-    public void apply(GameEvent event, Card owner, GameContext context) {
-        // Passive - checked by name in GameEngine, not reactive.
-    }
+public class StinkySigil extends PassiveMarkerSigil {
 
     @Override
     public String getName() {

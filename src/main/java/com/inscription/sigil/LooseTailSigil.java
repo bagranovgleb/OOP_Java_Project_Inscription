@@ -1,8 +1,5 @@
 package com.inscription.sigil;
 
-import com.inscription.engine.GameContext;
-import com.inscription.model.Card;
-import com.inscription.model.GameEvent;
 
 /**
  * When this card would be struck, a tail is created in its place and this
@@ -12,12 +9,7 @@ import com.inscription.model.GameEvent;
  * GameEngine checks for it by name in strikeLane(), before resolveAttack()
  * is ever called, and does the actual swap-and-relocate itself.
  */
-public class LooseTailSigil implements Sigil {
-
-    @Override
-    public void apply(GameEvent event, Card owner, GameContext context) {
-        // Passive - checked by name in GameEngine.strikeLane().
-    }
+public class LooseTailSigil extends PassiveMarkerSigil {
 
     @Override
     public String getName() {

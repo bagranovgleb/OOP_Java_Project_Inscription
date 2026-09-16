@@ -3,14 +3,16 @@ package com.inscription.board;
 import com.inscription.exception.SlotOccupiedException;
 import com.inscription.model.Card;
 
-public class Slot {
+public class Slot implements ReadOnlySlot {
 
     private Card occupant;
 
+    @Override
     public boolean isEmpty() {
         return occupant == null;
     }
 
+    @Override
     public Card getOccupant() {
         return occupant;
     }

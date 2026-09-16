@@ -1,6 +1,6 @@
 package com.inscription.sigil;
 
-import com.inscription.board.Slot;
+import com.inscription.board.ReadOnlySlot;
 import com.inscription.engine.GameContext;
 import com.inscription.model.Card;
 import com.inscription.model.GameEvent;
@@ -20,7 +20,7 @@ public interface Sigil {
 
     /**
      * Whether this sigil currently prevents its owner from being targeted
-     * (e.g. a submerged Diver). Default: never blocks targeting.
+     * (e.g. Waterborne). Default: never blocks targeting.
      */
     default boolean preventsTargeting(Card owner) {
         return false;
@@ -45,12 +45,12 @@ public interface Sigil {
      * Returns null if the card isn't currently on either side of the board.
      */
     default Player ownerOf(Card card, GameContext context) {
-        for (Slot slot : context.getBoard().getPlayerSlots()) {
+        for (ReadOnlySlot slot : context.getBoard().getPlayerSlots()) {
             if (slot.getOccupant() == card) {
                 return context.getPlayer();
             }
         }
-        for (Slot slot : context.getBoard().getOpponentSlots()) {
+        for (ReadOnlySlot slot : context.getBoard().getOpponentSlots()) {
             if (slot.getOccupant() == card) {
                 return context.getOpponent();
             }
